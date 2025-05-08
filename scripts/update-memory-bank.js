@@ -2,235 +2,37 @@
 
 /**
  * UMB (Update Memory Bank) Implementation
- * 
+ *
  * This script implements the UMB functionality to update the memory bank files.
- * It gathers information about the project and updates the memory bank files accordingly.
+ * It gathers information about the project and updates the memory bank files accordingly
+ * by using the MemoryBank class from the src/ library.
  */
 
-const fs = require('fs');
-const path = require('path');
 const { execSync } = require('child_process');
+// Assuming the compiled output is in 'dist' at the project root
+const { MemoryBank } = require('../dist/index');
 
-// Define the memory bank file paths
-const MEMORY_BANK_DIR = path.join(path.resolve(__dirname, '..'), 'memory-bank');
-const PRODUCT_CONTEXT_PATH = path.join(MEMORY_BANK_DIR, 'productContext.md');
-const ACTIVE_CONTEXT_PATH = path.join(MEMORY_BANK_DIR, 'activeContext.md');
-const SYSTEM_PATTERNS_PATH = path.join(MEMORY_BANK_DIR, 'systemPatterns.md');
-const DECISION_LOG_PATH = path.join(MEMORY_BANK_DIR, 'decisionLog.md');
-const PROGRESS_PATH = path.join(MEMORY_BANK_DIR, 'progress.md');
-
-// Helper function to get current timestamp in a consistent format
-function getTimestamp() {
-  return new Date().toISOString().replace('T', ' ').substring(0, 19);
-}
-
-// Helper function to read a file
-function readFile(filePath) {
-  try {
-    return fs.readFileSync(filePath, 'utf8');
-  } catch (error) {
-    console.error(`Error reading file ${filePath}:`, error);
-    return '';
-  }
-}
-
-// Helper function to write to a file
-function writeFile(filePath, content) {
-  try {
-    fs.writeFileSync(filePath, content, 'utf8');
-    return true;
-  } catch (error) {
-    console.error(`Error writing to file ${filePath}:`, error);
-    return false;
-  }
-}
-
-// Function to update product context
-function updateProductContext(update) {
-  const content = readFile(PRODUCT_CONTEXT_PATH);
-  let updatedContent = content;
-  
-  if (update.projectOverview) {
-    updatedContent = updatedContent.replace(
-      /## Project Overview\n(.*?)(?=\n## |$)/s,
-      `## Project Overview\n${update.projectOverview}\n`
-    );
-  }
-  
-  if (update.goalsAndObjectives) {
-    updatedContent = updatedContent.replace(
-      /## Goals and Objectives\n(.*?)(?=\n## |$)/s,
-      `## Goals and Objectives\n${update.goalsAndObjectives}\n`
-    );
-  }
-  
-  if (update.coreFeatures) {
-    updatedContent = updatedContent.replace(
-      /## Core Features\n(.*?)(?=\n## |$)/s,
-      `## Core Features\n${update.coreFeatures}\n`
-    );
-  }
-  
-  if (update.architectureOverview) {
-    updatedContent = updatedContent.replace(
-      /## Architecture Overview\n(.*?)(?=\n## |$)/s,
-      `## Architecture Overview\n${update.architectureOverview}\n`
-    );
-  }
-  
-  // Add timestamp to footnotes
-  const timestamp = getTimestamp();
-  updatedContent = updatedContent.replace(
-    /---\nFootnotes:\n(.*?)$/s,
-    `---\nFootnotes:\n[${timestamp}] - Updated product context\n`
-  );
-  
-  return writeFile(PRODUCT_CONTEXT_PATH, updatedContent);
-}
-
-// Function to update active context
-function updateActiveContext(update) {
-  const content = readFile(ACTIVE_CONTEXT_PATH);
-  let updatedContent = content;
-  
-  if (update.currentFocus) {
-    updatedContent = updatedContent.replace(
-      /## Current Focus\n(.*?)(?=\n## |$)/s,
-      `## Current Focus\n${update.currentFocus}\n`
-    );
-  }
-  
-  // Add new recent change at the top of the list
-  if (update.recentChanges) {
-    const timestamp = getTimestamp();
-    updatedContent = updatedContent.replace(
-      /## Recent Changes\n/,
-      `## Recent Changes\n[${timestamp}] - ${update.recentChanges}\n`
-    );
-  }
-  
-  if (update.openQuestions) {
-    updatedContent = updatedContent.replace(
-      /## Open Questions\/Issues\n(.*?)$/s,
-      `## Open Questions/Issues\n${update.openQuestions}\n`
-    );
-  }
-  
-  return writeFile(ACTIVE_CONTEXT_PATH, updatedContent);
-}
-
-// Function to update system patterns
-function updateSystemPatterns(update) {
-  const content = readFile(SYSTEM_PATTERNS_PATH);
-  let updatedContent = content;
-  
-  if (update.architecturalPatterns) {
-    updatedContent = updatedContent.replace(
-      /## Architectural Patterns\n(.*?)(?=\n## |$)/s,
-      `## Architectural Patterns\n${update.architecturalPatterns}\n`
-    );
-  }
-  
-  if (update.designPatterns) {
-    updatedContent = updatedContent.replace(
-      /## Design Patterns\n(.*?)(?=\n## |$)/s,
-      `## Design Patterns\n${update.designPatterns}\n`
-    );
-  }
-  
-  if (update.technicalDecisions) {
-    updatedContent = updatedContent.replace(
-      /## Technical Decisions\n(.*?)(?=\n## |$)/s,
-      `## Technical Decisions\n${update.technicalDecisions}\n`
-    );
-  }
-  
-  // Add timestamp to footnotes
-  const timestamp = getTimestamp();
-  updatedContent = updatedContent.replace(
-    /---\n(.*?)$/s,
-    `---\n[${timestamp}] - Updated system patterns\n`
-  );
-  
-  return writeFile(SYSTEM_PATTERNS_PATH, updatedContent);
-}
-
-// Function to add a new decision to the decision log
-function addDecision(decision) {
-  const content = readFile(DECISION_LOG_PATH);
-  const timestamp = getTimestamp();
-  
-  const newDecision = `
-[${timestamp}] - ${decision.title}
-- Rationale: ${decision.rationale}
-- Implications: ${decision.implications}
-- Status: ${decision.status}`;
-  
-  const updatedContent = content.replace(
-    /## Decisions\n/,
-    `## Decisions\n${newDecision}\n`
-  );
-  
-  return writeFile(DECISION_LOG_PATH, updatedContent);
-}
-
-// Function to update progress
-function updateProgress(update) {
-  const content = readFile(PROGRESS_PATH);
-  let updatedContent = content;
-  const timestamp = getTimestamp();
-  
-  if (update.currentTasks && update.currentTasks.length > 0) {
-    const tasksText = update.currentTasks.map(task => `- ${task}`).join('\n');
-    updatedContent = updatedContent.replace(
-      /## Current Tasks\n(.*?)(?=\n## |$)/s,
-      `## Current Tasks\n${tasksText}\n`
-    );
-  }
-  
-  if (update.completedTasks && update.completedTasks.length > 0) {
-    const tasksText = update.completedTasks.map(task => `[${timestamp}] - ${task}`).join('\n');
-    updatedContent = updatedContent.replace(
-      /## Completed Tasks\n/,
-      `## Completed Tasks\n${tasksText}\n`
-    );
-  }
-  
-  if (update.upcomingTasks && update.upcomingTasks.length > 0) {
-    const tasksText = update.upcomingTasks.map(task => `- ${task}`).join('\n');
-    updatedContent = updatedContent.replace(
-      /## Upcoming Tasks\n(.*?)(?=\n## |$)/s,
-      `## Upcoming Tasks\n${tasksText}\n`
-    );
-  }
-  
-  if (update.milestones && update.milestones.length > 0) {
-    const milestonesText = update.milestones.map(milestone => 
-      `[${timestamp}] - ${milestone.title}${milestone.description ? `\n  ${milestone.description}` : ''}`
-    ).join('\n');
-    
-    updatedContent = updatedContent.replace(
-      /## Milestones\n/,
-      `## Milestones\n${milestonesText}\n`
-    );
-  }
-  
-  return writeFile(PROGRESS_PATH, updatedContent);
-}
-
-// Function to gather information from recent commits
+/**
+ * Retrieves commit hashes and messages from the last 7 days, excluding merge commits.
+ *
+ * @returns {string[]} An array of recent commit descriptions, or an empty array if unavailable.
+ */
 function gatherRecentCommits() {
   try {
     // Get recent commits (last 7 days)
     const recentCommits = execSync('git log --since="7 days ago" --pretty=format:"%h - %s" --no-merges').toString();
     return recentCommits.split('\n').filter(line => line.trim() !== '');
   } catch (error) {
-    console.error('Error gathering recent commits:', error);
+    // console.warn('Warning: Error gathering recent commits (git likely not initialized or no commits):', error.message);
     return [];
   }
 }
 
-// Function to gather information from recent pull requests
+/**
+ * Retrieves a list of recent merged pull requests from the last 7 days using git merge commits.
+ *
+ * @returns {string[]} An array of strings representing recent merged pull requests, or an empty array if none are found or on error.
+ */
 function gatherRecentPRs() {
   try {
     // This is a simplified version - in a real implementation, you would use the GitHub API
@@ -238,143 +40,130 @@ function gatherRecentPRs() {
     const recentPRs = execSync('git log --since="7 days ago" --merges --pretty=format:"%h - %s"').toString();
     return recentPRs.split('\n').filter(line => line.trim() !== '');
   } catch (error) {
-    console.error('Error gathering recent PRs:', error);
+    // console.warn('Warning: Error gathering recent PRs (git likely not initialized or no merge commits):', error.message);
     return [];
   }
 }
 
-// Main function to automatically update the memory bank
-function autoUpdateMemoryBank() {
+/**
+ * Gathers recent project activity and updates the memory bank using the MemoryBank class.
+ *
+ * Collects recent commits and pull requests from the local git repository, prepares structured update content for product context, active context, system patterns, decisions, and progress, and delegates the update process to the MemoryBank's command handler.
+ *
+ * @returns {Promise<{success: boolean, message: string}>} The result of the memory bank update operation.
+ */
+async function autoUpdateMemoryBank() {
+  // Instantiate MemoryBank. By default, it will target './memory-bank' in the current working directory.
+  const mb = new MemoryBank();
+  // The initialize method now ensures the directory and master files are created if they don't exist.
+  // It uses the default content defined within the MemoryBank class.
+  await mb.initialize(); 
+  console.log(`Memory bank will be managed at: ${mb.baseDir}`);
+
   try {
     // Gather information from recent commits and PRs
     const recentCommits = gatherRecentCommits();
     const recentPRs = gatherRecentPRs();
-    
+
     // Extract information from commits and PRs
-    const recentChanges = recentPRs.length > 0 
+    const recentChangesContent = recentPRs.length > 0
       ? `Recent PRs:\n${recentPRs.map(pr => `- ${pr}`).join('\n')}`
-      : 'No recent PRs found';
-    
-    // Current focus based on recent activity
-    const currentFocus = "Maintaining and improving the memory bank system for better context retention across development sessions.";
-    
-    // Core features based on project structure
-    const coreFeatures = `- Daily context tracking
+      : (recentCommits.length > 0 ? `Recent Commits:\n${recentCommits.map(c => `- ${c}`).join('\n')}` : 'No recent PRs or commits found.');
+
+    // Current focus based on recent activity - placeholder
+    const currentFocusContent = "Maintaining and improving the memory bank system for better context retention across development sessions.";
+
+    // Core features based on project structure - placeholder
+    const coreFeaturesContent = `- Daily context tracking
 - Session management
 - Statistics tracking
 - Roo-Code integration
 - Automated documentation updates`;
-    
-    // Architecture overview based on project structure
-    const architectureOverview = `- Enhanced Memory Bank: Core functionality for context retention
+
+    // Architecture overview based on project structure - placeholder
+    const architectureOverviewContent = `- Enhanced Memory Bank: Core functionality for context retention
 - Memory Bank: Simplified interface to the enhanced system
 - Roo Integration: Connects memory bank with Roo-Code
 - UMB Command: CLI tool for updating memory bank files`;
-    
-    // System patterns based on project structure
-    const architecturalPatterns = `- File-based storage for memory bank data
+
+    // System patterns based on project structure - placeholder
+    const architecturalPatternsContent = `- File-based storage for memory bank data
 - Command-line interface for updates
 - Markdown format for human-readable documentation
 - Automated updates based on git history`;
-    
-    // Recent decisions based on commits
-    const decision = {
-      title: "Implement UMB command for memory bank updates",
-      rationale: "Simplify the process of updating memory bank files",
-      implications: "Need to maintain consistency between UMB command and memory bank files",
+
+    // Recent decisions based on commits - placeholder
+    const decisionContent = {
+      title: "Refactor UMB script to use MemoryBank library",
+      rationale: "Centralize memory bank logic and improve maintainability.",
+      implications: "UMB script now relies on the compiled MemoryBank class from dist/.",
       status: "Implemented"
     };
-    
-    // Progress updates based on recent activity
-    const progress = {
+
+    // Progress updates based on recent activity - placeholder
+    const progressContent = {
       currentTasks: [
-        "Refine UMB command implementation",
-        "Enhance memory bank file structure",
-        "Improve automation of documentation updates"
+        "Verify UMB command behavior with refactored script",
+        "Ensure documentation for MemoryBank class is up-to-date"
       ],
       completedTasks: [
-        "Implemented UMB command",
-        "Created memory bank file structure",
-        "Added documentation for memory bank usage"
+        "Refactored MemoryBank constructor for flexible pathing",
+        "Added SystemPatterns, Decision, Progress update methods to MemoryBank class",
+        "Refactored update-memory-bank.js to use MemoryBank class"
       ],
       upcomingTasks: [
-        "Integrate memory bank with Roo-Code",
-        "Add visualization for memory bank data",
-        "Implement search functionality for memory bank"
+        "Further testing of UMB command scenarios",
+        "Consider adding more automated info gathering to UMB script"
       ],
       milestones: [
         {
-          title: "Memory Bank Implementation",
-          description: "Implemented basic memory bank functionality for context retention"
+          title: "Memory Bank Library Refactoring",
+          description: "Successfully refactored UMB script to use the MemoryBank library, centralizing logic."
         }
       ]
     };
-    
-    // Create the updates object
+
+    // Create the updates object for handleUMBCommand
     const updates = {
       productContext: {
-        coreFeatures,
-        architectureOverview
+        coreFeatures: coreFeaturesContent,
+        architectureOverview: architectureOverviewContent
       },
       activeContext: {
-        currentFocus,
-        recentChanges
+        currentFocus: currentFocusContent,
+        recentChanges: recentChangesContent
       },
       systemPatterns: {
-        architecturalPatterns
+        architecturalPatterns: architecturalPatternsContent
       },
-      decision,
-      progress
+      decision: decisionContent,
+      progress: progressContent
     };
-    
-    // Update the memory bank files
-    let updatedFiles = [];
-    
-    if (updates.productContext) {
-      const success = updateProductContext(updates.productContext);
-      if (success) updatedFiles.push('productContext.md');
-    }
-    
-    if (updates.activeContext) {
-      const success = updateActiveContext(updates.activeContext);
-      if (success) updatedFiles.push('activeContext.md');
-    }
-    
-    if (updates.systemPatterns) {
-      const success = updateSystemPatterns(updates.systemPatterns);
-      if (success) updatedFiles.push('systemPatterns.md');
-    }
-    
-    if (updates.decision) {
-      const success = addDecision(updates.decision);
-      if (success) updatedFiles.push('decisionLog.md');
-    }
-    
-    if (updates.progress) {
-      const success = updateProgress(updates.progress);
-      if (success) updatedFiles.push('progress.md');
-    }
-    
-    if (updatedFiles.length === 0) {
-      return { 
-        success: false, 
-        message: 'No updates provided. Memory bank remains unchanged.' 
-      };
-    }
-    
-    return { 
-      success: true, 
-      message: `Memory bank updated successfully. Updated files: ${updatedFiles.join(', ')}` 
-    };
+
+    // Call the centralized command handler in MemoryBank
+    const result = await mb.handleUMBCommand(updates);
+    return result;
+
   } catch (error) {
     console.error('Error automatically updating memory bank:', error);
-    return { 
-      success: false, 
-      message: `Failed to update memory bank: ${error.message}` 
+    return {
+      success: false,
+      message: `Failed to update memory bank: ${error.message}`
     };
   }
 }
 
-// Run the auto-update function
-const result = autoUpdateMemoryBank();
-console.log(result.message);
+/**
+ * Executes the memory bank auto-update process and logs the outcome.
+ *
+ * Calls {@link autoUpdateMemoryBank}, outputs the resulting message, and sets the process exit code to 1 if the update fails.
+ */
+async function main() {
+  const result = await autoUpdateMemoryBank();
+  console.log(result.message);
+  if (!result.success) {
+    process.exitCode = 1; // Indicate failure
+  }
+}
+
+main();
